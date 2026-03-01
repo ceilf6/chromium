@@ -22,6 +22,7 @@ namespace base {
 class IOWatcher;
 class TimeTicks;
 
+// 定义了事件循环骨架的抽象基类
 class BASE_EXPORT MessagePump {
  public:
   using MessagePumpFactory = std::unique_ptr<MessagePump>();
@@ -65,13 +66,13 @@ class BASE_EXPORT MessagePump {
       // The next PendingTask's |delayed_run_time|. is_null() if there's extra
       // work to run immediately. is_max() if there are no more immediate nor
       // delayed tasks.
-      TimeTicks delayed_run_time;
+      TimeTicks delayed_run_time; // 下一个延时任务的触发时间
 
       // |leeway| determines the preferred time range for scheduling
       // work. A larger leeway provides more freedom to schedule work at
       // an optimal time for power consumption. This field is ignored
       // for immediate work.
-      TimeDelta leeway;
+      TimeDelta leeway; // 允许的时间偏差
 
       // A recent view of TimeTicks::Now(). Only valid if |delayed_run_time|
       // isn't null nor max. MessagePump impls should use remaining_delay()
@@ -179,22 +180,22 @@ class BASE_EXPORT MessagePump {
   // processing so neither type of event starves the other of cycles. Each call
   // to a delegate function is considered the beginning of a new "unit of work".
   //
-  // The anatomy of a typical run loop:
+  // The anatomy of a typical run loop: // 经典 Run loop 伪代码
   //
   //   for (;;) {
   //     bool did_native_work = false;
   //     {
   //       auto scoped_do_work_item = state_->delegate->BeginWorkItem();
-  //       did_native_work = DoNativeWork();
+  //       did_native_work = DoNativeWork(); // 1. 处理原生平台事件 - UI消息、IO
   //     }
   //     if (should_quit_)
   //       break;
   //
-  //     Delegate::NextWorkInfo next_work_info = delegate->DoWork();
+  //     Delegate::NextWorkInfo next_work_info = delegate->DoWork(); // 2. 应用层任务委托给 Delegate
   //     if (should_quit_)
   //       break;
   //
-  //     if (did_native_work || next_work_info.is_immediate())
+  //     if (did_native_work || next_work_info.is_immediate()) // 3. 如果有任务就继续，否则进入空闲
   //       continue;
   //
   //     delegate_->DoIdleWork();
@@ -204,7 +205,7 @@ class BASE_EXPORT MessagePump {
   //     if (did_idle_work)
   //       continue;
   //
-  //     WaitForWork();
+  //     WaitForWork(); // 4. 等待事件（精确休眠到下一个 delayed_run_time）
   //   }
   //
 

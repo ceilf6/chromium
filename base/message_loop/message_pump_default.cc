@@ -31,6 +31,7 @@ MessagePumpDefault::MessagePumpDefault()
 
 MessagePumpDefault::~MessagePumpDefault() = default;
 
+// 事件循环具体实现 - 通用线程
 void MessagePumpDefault::Run(Delegate* delegate) {
   AutoReset<bool> auto_reset_keep_running(&keep_running_, true);
 
@@ -46,7 +47,7 @@ void MessagePumpDefault::Run(Delegate* delegate) {
     }
 
     if (has_more_immediate_work) {
-      continue;
+      continue; // // 有任务，不睡
     }
 
     delegate->DoIdleWork();
@@ -67,7 +68,7 @@ void MessagePumpDefault::Run(Delegate* delegate) {
           event_.Wait();
         }
       } else {
-        event_.Wait();
+        event_.Wait(); // 无限等待（WaitableEvent）
       }
     } else {
       // Not handling shorter sleeps to keep the code as simple as possible.
@@ -79,7 +80,7 @@ void MessagePumpDefault::Run(Delegate* delegate) {
           event_.TimedWait(next_work_info.remaining_delay());
         }
       } else {
-        event_.TimedWait(next_work_info.remaining_delay());
+        event_.TimedWait(next_work_info.remaining_delay()); // 定时等待
       }
     }
     if (may_busy_loop) {
@@ -97,7 +98,7 @@ void MessagePumpDefault::Quit() {
 void MessagePumpDefault::ScheduleWork() {
   // Since this can be called on any thread, we need to ensure that our Run
   // loop wakes up.
-  event_.Signal();
+  event_.Signal(); // 跨线程唤醒（PostTask 时调用）
 }
 
 void MessagePumpDefault::ScheduleDelayedWork(
