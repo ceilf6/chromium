@@ -1,0 +1,52 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+source_set("core") {
+  sources = [
+    "accessibility_annotator_data_provider.cc",
+    "accessibility_annotator_data_provider.h",
+    "accessibility_annotator_data_provider_impl.cc",
+    "accessibility_annotator_data_provider_impl.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//components/accessibility_annotator/core/data_models",
+    "//components/keyed_service/core",
+    "//url",
+  ]
+}
+
+source_set("features") {
+  sources = [
+    "accessibility_annotator_features.cc",
+    "accessibility_annotator_features.h",
+  ]
+  deps = [ "//base" ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  sources = [
+    "accessibility_annotator_data_provider_impl_unittest.cc",
+    "data_models/entity_unittest.cc",
+    "storage/accessibility_annotation_sync_bridge_unittest.cc",
+    "storage/accessibility_annotator_database_unittest.cc",
+  ]
+
+  deps = [
+    ":core",
+    "//base",
+    "//base/test:test_support",
+    "//components/accessibility_annotator/core/data_models",
+    "//components/accessibility_annotator/core/storage",
+    "//components/sync:test_support",
+    "//components/sync/model",
+    "//sql",
+    "//sql:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+  ]
+}
