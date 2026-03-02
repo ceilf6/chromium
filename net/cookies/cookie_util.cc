@@ -709,7 +709,7 @@ bool IsDomainMatch(const std::string_view domain, const std::string_view host) {
   // URLs like http://.strange.url.  To retrieve cookies in this instance,
   // we allow matching as a host cookie even when the domain_ starts with
   // a period.
-  if (host == domain)
+  if (host == domain) // 精确匹配（host cookie：domain 不含前缀 "."）
     return true;
 
   // Domain cookie must have an initial ".".  To match, it must be
@@ -720,6 +720,8 @@ bool IsDomainMatch(const std::string_view domain, const std::string_view host) {
   // extension cookie tests currently use the funtionality, and if we
   // ever decide to implement that it should be done by preventing
   // such cookies from being set.
+  // domain cookie（domain 以 "." 开头）
+  // e.g. domain=".example.com"，host="sub.example.com" → 匹配
   if (domain.empty() || domain[0] != '.')
     return false;
 
@@ -729,6 +731,7 @@ bool IsDomainMatch(const std::string_view domain, const std::string_view host) {
 
   // A pure suffix of the host (ok since we know the domain already
   // starts with a ".")
+  // 后缀匹配：host末尾包含 domain
   return (host.length() > domain.length() &&
           host.compare(host.length() - domain.length(), domain.length(),
                        domain) == 0);
@@ -739,7 +742,7 @@ bool IsOnPath(const std::string_view cookie_path, const std::string_view url_pat
   // would also make no sense for our prefix match.  The code that
   // creates a CanonicalCookie should make sure the path is never zero length,
   // but we double check anyway.
-  if (cookie_path.empty()) {
+  if (cookie_path.empty()) { // url_path 必须以 cookie_path 为前缀
     return false;
   }
 
@@ -762,6 +765,8 @@ bool IsOnPath(const std::string_view cookie_path, const std::string_view url_pat
   // the cookie path ends in a trailing '/', or that we prefix up to a '/'
   // in the url path.  Since we know that the url path length is greater
   // than the cookie path length, it's safe to index one byte past.
+  // 防止 /blah 错误匹配 /blahblah/
+  // cookie_path 末尾是 '/'，或 url_path 中 cookie_path 后紧接 '/'
   if (cookie_path.length() != url_path.length() && cookie_path.back() != '/' &&
       url_path[cookie_path.length()] != '/') {
     return false;
@@ -892,12 +897,13 @@ std::string SerializeRequestCookieLine(
   return buffer;
 }
 
+// 计算 SameSite 请求上下文
 CookieOptions::SameSiteCookieContext ComputeSameSiteContextForRequest(
-    std::string_view http_method,
-    const std::vector<GURL>& url_chain,
-    const SiteForCookies& site_for_cookies,
-    const std::optional<url::Origin>& initiator,
-    bool is_main_frame_navigation,
+    std::string_view http_method, // HTTP请求方法 GET, POST...
+    const std::vector<GURL>& url_chain, // 请求 URL 链（含重定向历史）
+    const SiteForCookies& site_for_cookies, // 顶级框架站点
+    const std::optional<url::Origin>& initiator, // 请求发起方 Origin
+    bool is_main_frame_navigation, // 是否主框架导航
     bool force_ignore_site_for_cookies,
     bool ignore_unsafe_method_for_same_site_lax) {
   // Set SameSiteCookieContext according to the rules laid out in

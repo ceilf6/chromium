@@ -776,7 +776,10 @@ void CookieMonster::GetCookieListWithOptions(
 
   CookieAccessResultList included_cookies;
   CookieAccessResultList excluded_cookies;
+  // 1. URI scheme 白名单检查（只处理 http/https/ws/wss 等）
   if (HasCookieableScheme(url)) {
+    // 2. 按注册域（eTLD+1）快速索引候选 cookie
+    //    内部使用 std::map，key 是 domain，O(log n)
     // Retrieve the domain, check this domain to see if this is the first
     // time it is entering legacy mode, if it is delete all aliasing cookies
     // within this domain.
@@ -801,6 +804,7 @@ void CookieMonster::GetCookieListWithOptions(
                              partitioned_cookie_ptrs.end());
         }
       } else {
+        // 3. 同时查询 Partitioned Cookie（CHIPS 机制）
         for (const CookiePartitionKey& key :
              cookie_partition_key_collection.PartitionKeys()) {
           std::vector<CanonicalCookie*> partitioned_cookie_ptrs =
@@ -810,9 +814,11 @@ void CookieMonster::GetCookieListWithOptions(
         }
       }
     }
+    // 4. 排序（保证 path 越长越靠前，创建时间越早越靠前）
     std::sort(cookie_ptrs.begin(), cookie_ptrs.end(), CookieSorter);
 
     included_cookies.reserve(cookie_ptrs.size());
+    // 5. 逐个过滤
     FilterCookiesWithOptions(url, options, cookie_partition_key_collection,
                              cookie_ptrs, included_cookies, excluded_cookies);
   }

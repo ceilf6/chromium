@@ -851,6 +851,7 @@ void URLRequestHttpJob::AddCookieHeaderAndStart() {
                      weak_factory_.GetWeakPtr(), options));
 }
 
+// 用户隐私设置过滤
 void URLRequestHttpJob::SetCookieHeaderAndStart(
     const CookieOptions& options,
     const CookieAccessResultList& cookies_with_access_result_list,
@@ -886,6 +887,7 @@ void URLRequestHttpJob::SetCookieHeaderAndStart(
   if (!maybe_included_cookies.empty()) {
     std::string cookie_line =
         CanonicalCookie::BuildCookieLine(maybe_included_cookies);
+        // 拼接 cookie 进 请求头
     request_info_.extra_headers.SetHeader(HttpRequestHeaders::kCookie,
                                           cookie_line);
 
@@ -2093,10 +2095,14 @@ void URLRequestHttpJob::NotifyURLRequestDestroyed() {
   }
 }
 
+// 是否应该附带Cookie
 bool URLRequestHttpJob::ShouldAddCookieHeader() const {
   // Read cookies whenever allow_credentials() is true, even if the PrivacyMode
   // is being overridden by NetworkDelegate and will eventually block them, as
   // blocked cookies still need to be logged in that case.
+  // 1. URLRequestContext 有可用的 CookieStore
+  // 2. 请求允许携带凭据 credential
+  //    allow_credentials() 对应 fetch 的 credentials: 'include' / 'same-origin'
   return request_->context()->cookie_store() && request_->allow_credentials();
 }
 

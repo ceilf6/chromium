@@ -215,12 +215,15 @@ void ApplySameSiteCookieWarningToStatus(
 
 }  // namespace
 
+// 逐个 Cookie 进行访问、决策是否携带
 CookieAccessResult CookieBase::IncludeForRequestURL(
     const GURL& url,
     const CookieOptions& options,
     const CookieAccessParams& params) const {
   CookieInclusionStatus status;
   // Filter out HttpOnly cookies, per options.
+  // 1. HttpOnly 过滤
+  // 若 options 要求排除 HttpOnly（如 JS document.cookie 访问），则排除
   if (options.exclude_httponly() && IsHttpOnly()) {
     status.AddExclusionReason(
         CookieInclusionStatus::ExclusionReason::EXCLUDE_HTTP_ONLY);
@@ -236,14 +239,15 @@ CookieAccessResult CookieBase::IncludeForRequestURL(
       params.delegate_treats_url_as_trustworthy) {
     cookie_access_scheme = CookieAccessScheme::kTrustworthy;
   }
+  // 2. Secure 
   switch (cookie_access_scheme) {
-    case CookieAccessScheme::kNonCryptographic:
+    case kNonCryptographic:  // http://
       if (SecureAttribute()) {
-        status.AddExclusionReason(
-            CookieInclusionStatus::ExclusionReason::EXCLUDE_SECURE_ONLY);
+          status.AddExclusionReason(EXCLUDE_SECURE_ONLY);
+          // Secure cookie 不能发送到 http:// 请求
       }
       break;
-    case CookieAccessScheme::kTrustworthy:
+    case CookieAccessScheme::kTrustworthy: // localhost 等被信任的非 https 源
       is_allowed_to_access_secure_cookies = true;
       if (SecureAttribute() ||
           (cookie_util::IsSchemeBoundCookiesEnabled() &&
@@ -254,7 +258,7 @@ CookieAccessResult CookieBase::IncludeForRequestURL(
                 WARN_SECURE_ACCESS_GRANTED_NON_CRYPTOGRAPHIC);
       }
       break;
-    case CookieAccessScheme::kCryptographic:
+    case CookieAccessScheme::kCryptographic: // https://
       is_allowed_to_access_secure_cookies = true;
       break;
   }
@@ -275,6 +279,8 @@ CookieAccessResult CookieBase::IncludeForRequestURL(
   // A cookie with a source scheme of kSecure shouldn't be accessible by
   // kNonCryptographic urls. But we can skip adding a status if the cookie is
   // already blocked due to the `Secure` attribute.
+  // 3. Schema绑定
+  // // 若 cookie 设置时是 https，不允许 http 请求读取（新特性）
   if (source_scheme_ == CookieSourceScheme::kSecure &&
       cookie_access_scheme == CookieAccessScheme::kNonCryptographic &&
       !status.HasExclusionReason(
@@ -308,8 +314,9 @@ CookieAccessResult CookieBase::IncludeForRequestURL(
   CHECK(url_port != url::PORT_INVALID);
   // The cookie's source port either must match the url's port, be
   // PORT_UNSPECIFIED, or the cookie must be a domain cookie.
+  // 4. Port绑定
   bool port_matches = url_port == source_port_ ||
-                      source_port_ == url::PORT_UNSPECIFIED || IsDomainCookie();
+                      source_port_ == url::PORT_UNSPECIFIED || IsDomainCookie(); // domain 级 cookie 不绑端口
 
   // Or if the url is trustworthy, we'll also match 443 (in order to get secure
   // cookies).
@@ -355,6 +362,7 @@ CookieAccessResult CookieBase::IncludeForRequestURL(
 
   switch (effective_same_site) {
     case CookieEffectiveSameSite::STRICT_MODE:
+      // 请求上下文必须达到 SAME_SITE_STRICT
       if (cookie_inclusion_context <
           CookieOptions::SameSiteCookieContext::ContextType::SAME_SITE_STRICT) {
         status.AddExclusionReason(
@@ -545,10 +553,12 @@ CookieAccessResult CookieBase::IsSetPermittedInContext(
   return access_result;
 }
 
+// 6. Path匹配
 bool CookieBase::IsOnPath(const std::string_view url_path) const {
   return cookie_util::IsOnPath(path_, url_path);
 }
 
+// 5. Domain匹配
 bool CookieBase::IsDomainMatch(const std::string_view host) const {
   return cookie_util::IsDomainMatch(domain_, host);
 }
